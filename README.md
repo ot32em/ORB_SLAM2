@@ -1,3 +1,164 @@
+# My Running ORB-SLAM2 on Windows 10(WSL2+Ubuntu) Setup Flow
+
+# wsl
+
+// https://docs.microsoft.com/zh-tw/windows/wsl/install
+// https://blog.miniasp.com/post/2020/07/26/Multiple-Linux-Dev-Environment-build-on-WSL-2
+
+1. upgrade windows 10 to 19041+
+2. in powershell, wsl --install
+3. microsoft store install ubuntu18
+4. --export and import to create another instance
+
+$ wsl --export YOUR_NEW_UBUNTU YOUR_UBUNTU.tar
+$ wsl --import ORBSLAM_UBUNTU C:\WSL\ORBSLAM_UBUNTU_DIR\ YOUR_UBUNTU.tar
+$ wsl -d ORBSLAM_UBUNTU -u root
+
+
+# opencv
+// https://wenyuangg.github.io/posts/opencv/opencv-installation.html
+
+$ apt-get update && apt-get upgrade
+$ apt-get install build-essential cmake git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev
+$ apt-get install python3.5-dev python3-numpy libtbb2 libtbb-dev
+$ apt-get install libjpeg-dev libpng-dev libtiff5-dev libjasper-dev libdc1394-22-dev libeigen3-dev libtheora-dev libvorbis-dev libxvidcore-dev libx264-dev sphinx-common libtbb-dev yasm libfaac-dev libopencore-amrnb-dev libopencore-amrwb-dev libopenexr-dev libgstreamer-plugins-base1.0-dev libavutil-dev libavfilter-dev libavresample-dev
+
+--
+
+$ cd ~/others/
+$ git clone https://github.com/opencv/opencv
+$ git clone https://github.com/opencv/opencv_contrib
+$ cd opencv;
+$ git tag
+$ git checkout tags/3.4.15
+$ cd ../opencv_contrib
+$ git tag
+$ git checkout tags/3.4.15
+$ cd ../opencv/
+$ mkdir build && cd build/
+$ cmake -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules ..
+$ make -j4
+$ make install
+$ ldconfig
+
+# Pangolin (GUI)
+
+// https://github.com/stevenlovegrove/Pangolin
+
+$ cd ~/others/
+$ git clone --recursive https://github.com/stevenlovegrove/Pangolin
+$ git tag
+$ git checkout tags/0.6
+$ ./scripts/install_prerequisites.sh --dry-run recommended
+$ ./scripts/install_prerequisites.sh recommended
+$ mkdir build && cd build
+$ cmake ..
+$ cmake --build .
+$ make install
+
+# orbslam2
+
+// https://github.com/raulmur/ORB_SLAM2
+
+$ git clone https://github.com/raulmur/ORB_SLAM2
+$ cd ORB_SLAM2
+$ chmod +x build.sh
+$ ./build.sh
+
+(But it usally has some issues)
+
+- compile failure due to usleep() symbol unknown.
+- vocabuary load too long
+- cannot open windows X 
+
+# run example
+
+1. download tum sequence
+Sequence 'freiburg3_long_office_household'
+cover: https://vision.in.tum.de/rgbd/dataset/freiburg3/rgbd_dataset_freiburg3_long_office_household-rgb.png
+download link(1.38GB): 
+https://vision.in.tum.de/rgbd/dataset/freiburg3/rgbd_dataset_freiburg3_long_office_household.tgz
+
+$ download_the_tum to ~/seq/office3/
+$ cd ~/others/ORB_SLAM2/
+$ Examples/Monocular/mono_tum \
+        Vocabulary/ORBvoc.bin \
+        Examples/Monocular/TUM1.yaml \
+        ~/seq/office3
+		
+# orbslam2 issue (fix compile error usleep)
+
+// https://blog.csdn.net/weixin_44436677/article/details/105587986
+
+for cc file of 
+ - Examples/Monocular/mono_euroc.cc
+ - Examples/Monocular/mono_kitti.cc
+ - Examples/Monocular/mono_tum.cc
+ - Examples/RGB-D/rgbd_tum.cc
+ - Examples/Stereo/stereo_euroc.cc
+ - Examples/Stereo/stereo_kitti.cc
+ - src/LocalMapping.cc
+ - src/LoopClosing.cc
+ - src/System.cc
+ - src/Tracking.cc
+ - src/Viewer.cc
+
+Add header for those source file by adding the following line
+>>>
+#include <unistd.h>
+<<<
+
+# orbslam2 issue (fix vocabulary too slow for each launch)
+
+Check this commit
+https://github.com/raulmur/ORB_SLAM2/pull/21/commits/4122702ced85b20bd458d0e74624b9610c19f8cc
+
+Merge or hand-copy all those files
+
+
+# orbslam2 issue (open in-wsl Pangolin GUI windows in Windows 10 how-to)
+
+// https://stackoverflow.com/questions/61110603/how-to-set-up-working-x11-forwarding-on-wsl2
+
+
+1. Install the vcxsrv
+https://sourceforge.net/projects/vcxsrv/
+2. in wsl2, 
+Add the following lines in rc files. 
+>>>
+export LIBGL_ALWAYS_INDIRECT=1
+export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2>/dev/null):0
+<<<
+3. in wsl2, 
+install the linux side modules to communicate GUI stuff out to windows 10
+$ apt update
+$ apt install x11-apps
+
+4. config the vcxsrc
+open C:\Program Files\VcXsrv\xlaunch.exe
+check the 4 checkbox
+- Multiple Windows
+- Start no client
+- disable Native opengl
+- enable Disable access control
+
+5. it should work if you run `xcalc` in wsl linux.
+
+$ Examples/Monocular/mono_tum \
+        Vocabulary/ORBvoc.bin \
+        Examples/Monocular/TUM1.yaml \
+        ~/seq/office3
+		
+Then the ORBSLAM2 testbed should open a Pangolin GUI through vcxsrc service to open serveral windows in Windows 10.
+
+
+=========================
+
+END of additional README
+
+
+=========================
+
 # ORB-SLAM2
 **Authors:** [Raul Mur-Artal](http://webdiis.unizar.es/~raulmur/), [Juan D. Tardos](http://webdiis.unizar.es/~jdtardos/), [J. M. M. Montiel](http://webdiis.unizar.es/~josemari/) and [Dorian Galvez-Lopez](http://doriangalvez.com/) ([DBoW2](https://github.com/dorian3d/DBoW2))
 
