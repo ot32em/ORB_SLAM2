@@ -1,3 +1,9 @@
+# Study Branch
+
+- Add comments as reading note
+- Refactoring to help understanding
+
+
 # My Running ORB-SLAM2 on Windows 10(WSL2+Ubuntu) Setup Flow
 
 ## Install wsl 2.0 + Ubuntu18 distro on Windows 10 
