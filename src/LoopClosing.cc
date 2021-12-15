@@ -84,6 +84,8 @@ void LoopClosing::Run()
         usleep(5000);
     }
 
+    printf("Hello\n");
+
     SetFinish();
 }
 
@@ -238,44 +240,33 @@ bool LoopClosing::ComputeSim3()
     // If enough matches are found, we setup a Sim3Solver
     ORBmatcher matcher(0.75,true);
 
-    vector<Sim3Solver*> vpSim3Solvers;
-    vpSim3Solvers.resize(nInitialCandidates);
-
-    vector<vector<MapPoint*> > vvpMapPointMatches;
-    vvpMapPointMatches.resize(nInitialCandidates);
-
-    vector<bool> vbDiscarded;
-    vbDiscarded.resize(nInitialCandidates);
+    vector<Sim3Solver*> vpSim3Solvers(nInitialCandidates, nullptr);
+    vector<vector<MapPoint*> > vvpMapPointMatches(nInitialCandidates, {});
+    vector<bool> vbDiscarded(nInitialCandidates, false);
 
     int nCandidates=0; //candidates with enough matches
 
-    for(int i=0; i<nInitialCandidates; i++)
-    {
+    // 1. test not bad
+    // 2. test matches >= 20
+    // 3. init sim3solver with F_cur, F_i, and matches
+    for(int i=0; i<nInitialCandidates; i++) {
         KeyFrame* pKF = mvpEnoughConsistentCandidates[i];
-
         // avoid that local mapping erase it while it is being processed in this thread
         pKF->SetNotErase();
-
-        if(pKF->isBad())
-        {
+        if(pKF->isBad()) {
             vbDiscarded[i] = true;
             continue;
         }
 
         int nmatches = matcher.SearchByBoW(mpCurrentKF,pKF,vvpMapPointMatches[i]);
-
-        if(nmatches<20)
-        {
+        if(nmatches<20) {
             vbDiscarded[i] = true;
             continue;
         }
-        else
-        {
-            Sim3Solver* pSolver = new Sim3Solver(mpCurrentKF,pKF,vvpMapPointMatches[i],mbFixScale);
-            pSolver->SetRansacParameters(0.99,20,300);
-            vpSim3Solvers[i] = pSolver;
-        }
-
+        
+        Sim3Solver* pSolver = new Sim3Solver(mpCurrentKF,pKF,vvpMapPointMatches[i],mbFixScale);
+        pSolver->SetRansacParameters(0.99,20,300);
+        vpSim3Solvers[i] = pSolver;
         nCandidates++;
     }
 
@@ -283,26 +274,20 @@ bool LoopClosing::ComputeSim3()
 
     // Perform alternatively RANSAC iterations for each candidate
     // until one is succesful or all fail
-    while(nCandidates>0 && !bMatch)
-    {
-        for(int i=0; i<nInitialCandidates; i++)
-        {
-            if(vbDiscarded[i])
-                continue;
+    while(nCandidates>0 && !bMatch) {
+        for(int i=0; i<nInitialCandidates; i++) {
+            if(vbDiscarded[i]) { continue; }
 
             KeyFrame* pKF = mvpEnoughConsistentCandidates[i];
 
             // Perform 5 Ransac Iterations
-            vector<bool> vbInliers;
-            int nInliers;
-            bool bNoMore;
-
             Sim3Solver* pSolver = vpSim3Solvers[i];
-            cv::Mat Scm  = pSolver->iterate(5,bNoMore,vbInliers,nInliers);
-
+            vector<bool> vbInliers;
+            int nInliers = 0;
+            bool bNoMore = false;
+            cv::Mat Scm = pSolver->iterate(5,bNoMore,vbInliers,nInliers);
             // If Ransac reachs max. iterations discard keyframe
-            if(bNoMore)
-            {
+            if(bNoMore) {
                 vbDiscarded[i]=true;
                 nCandidates--;
             }

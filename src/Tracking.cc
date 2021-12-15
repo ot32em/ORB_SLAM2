@@ -901,21 +901,21 @@ bool Tracking::TrackWithMotionModel()
     int nmatchesMap = 0;
     for(int i =0; i<mCurrentFrame.N; i++)
     {
-        if(mCurrentFrame.mvpMapPoints[i])
+        if(!mCurrentFrame.mvpMapPoints[i]) { continue; }
+        
+        if(mCurrentFrame.mvbOutlier[i])
         {
-            if(mCurrentFrame.mvbOutlier[i])
-            {
-                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
+            MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
 
-                mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
-                mCurrentFrame.mvbOutlier[i]=false;
-                pMP->mbTrackInView = false;
-                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
-                nmatches--;
-            }
-            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
-                nmatchesMap++;
+            mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
+            mCurrentFrame.mvbOutlier[i]=false;
+            pMP->mbTrackInView = false;
+            pMP->mnLastFrameSeen = mCurrentFrame.mnId;
+            nmatches--;
         }
+        else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+            nmatchesMap++;
+        
     }    
 
     if(mbOnlyTracking)
